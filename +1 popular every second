@@ -1,45 +1,48 @@
-local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+-- Load Rayfield
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
+-- Create the main window
 local Window = Rayfield:CreateWindow({
-    Name = "+1 Popular Every Second",
-    LoadingTitle = "Loading...",
-    LoadingSubtitle = "Teleport & Popularity",
+    Name = "Teleport Script Library",
+    LoadingTitle = "Teleporting...",
+    LoadingSubtitle = "by YourName",
     ConfigurationSaving = {
-        Enabled = false,
+        Enabled = false
     },
     Discord = {
-        Enabled = false,
+        Enabled = false
     },
-    KeySystem = false,
+    KeySystem = false
 })
 
+-- Create a page for teleporting
 local MainTab = Window:CreateTab("Main", 4483362458)
 
--- Variables
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local hrp = character:WaitForChild("HumanoidRootPart")
-
+-- Add toggle to start/stop teleport loop
 local teleporting = false
-local teleportThread
+local teleportConnection
 
--- Teleport position
-local teleportPosition = Vector3.new(235, 36, 541)
-
--- Toggle teleport and walk
 MainTab:CreateToggle({
-    Name = "Teleport + Walk Loop",
+    Name = "Loop Teleport + Walk Forward",
     CurrentValue = false,
     Callback = function(Value)
         teleporting = Value
 
         if teleporting then
-            teleportThread = task.spawn(function()
-                while teleporting and hrp and hrp.Parent do
-                    hrp.CFrame = CFrame.new(teleportPosition)
+            local Players = game:GetService("Players")
+            local player = Players.LocalPlayer
+            local character = player.Character or player.CharacterAdded:Wait()
+            local hrp = character:WaitForChild("HumanoidRootPart")
+            local humanoid = character:WaitForChild("Humanoid")
 
-                    -- Walk forward
+            local teleportPosition = Vector3.new(235, 36, 541)
+
+            teleportConnection = task.spawn(function()
+                while teleporting and hrp and hrp.Parent do
+                    -- Teleport
+                    hrp.CFrame = CFrame.new(teleportPosition)
+                    
+                    -- Walk forward a few studs
                     local walkDistance = 10
                     local steps = 10
                     for i = 1, steps do
@@ -52,33 +55,10 @@ MainTab:CreateToggle({
                 end
             end)
         else
-            teleporting = false
-            teleportThread = nil
-        end
-    end,
-})
-
--- Input to set Popularity
-MainTab:CreateInput({
-    Name = "Set Popularity Value",
-    PlaceholderText = "Enter a number...",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(Value)
-        local leaderstats = player:FindFirstChild("leaderstats")
-        if leaderstats then
-            local popValue = leaderstats:FindFirstChild("Popularity")
-            if popValue and popValue:IsA("NumberValue") then
-                local number = tonumber(Value)
-                if number then
-                    popValue.Value = number
-                else
-                    warn("Invalid number entered for Popularity")
-                end
-            else
-                warn("Popularity not found or not a NumberValue")
+            if teleportConnection then
+                teleporting = false
+                teleportConnection = nil
             end
-        else
-            warn("leaderstats not found")
         end
     end,
 })
