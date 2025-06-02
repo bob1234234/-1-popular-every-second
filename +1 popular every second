@@ -1,0 +1,66 @@
+-- +1 Popular Every Second Script
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local hrp = character:WaitForChild("HumanoidRootPart")
+
+local teleporting = false
+local teleportConnection
+
+-- Teleport position
+local teleportPosition = Vector3.new(235, 36, 541)
+
+-- Function to start/stop teleport and walk loop
+local function toggleTeleport(value)
+    teleporting = value
+
+    if teleporting then
+        teleportConnection = task.spawn(function()
+            while teleporting and hrp and hrp.Parent do
+                hrp.CFrame = CFrame.new(teleportPosition)
+
+                -- Walk forward
+                local walkDistance = 10
+                local steps = 10
+                for i = 1, steps do
+                    if not teleporting then break end
+                    hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -walkDistance / steps)
+                    task.wait(0.1)
+                end
+
+                task.wait(1)
+            end
+        end)
+    else
+        teleporting = false
+        teleportConnection = nil
+    end
+end
+
+-- Function to set Popularity value
+local function setPopularity(value)
+    local leaderstats = player:FindFirstChild("leaderstats")
+    if leaderstats then
+        local popValue = leaderstats:FindFirstChild("Popularity")
+        if popValue and popValue:IsA("NumberValue") then
+            local number = tonumber(value)
+            if number then
+                popValue.Value = number
+            else
+                warn("Invalid number entered for Popularity")
+            end
+        else
+            warn("Popularity not found or not a NumberValue")
+        end
+    else
+        warn("leaderstats not found")
+    end
+end
+
+-- Example usage:
+
+-- Start teleport + walk loop
+toggleTeleport(true)
+
+-- Set popularity value (change the number below as you want)
+setPopularity(100)
