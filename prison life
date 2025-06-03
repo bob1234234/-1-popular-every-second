@@ -1,9 +1,9 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-    Name = "Prison Life GUI",
-    LoadingTitle = "Teleport GUI",
-    LoadingSubtitle = "by your_name",
+    Name = "Prison Life",
+    LoadingTitle = "scriptz 4 l4fe",
+    LoadingSubtitle = "by Zxeraas",
     ConfigurationSaving = {
         Enabled = false
     },
