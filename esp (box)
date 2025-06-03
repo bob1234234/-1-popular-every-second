@@ -1,0 +1,237 @@
+local function API_Check()
+    if Drawing == nil then
+        return "No"
+    else
+        return "Yes"
+    end
+end
+
+local Find_Required = API_Check()
+
+if Find_Required == "No" then
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "Exunys Developer",
+        Text = "Boxes script could not be loaded because your exploit is unsupported.",
+        Duration = math.huge,
+        Button1 = "OK"
+    })
+    return
+end
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+
+local Typing = false
+
+-- Settings
+_G.SendNotifications = true
+_G.DefaultSettings = false
+_G.TeamCheck = false -- Only show enemies
+_G.BoxesVisible = true
+_G.LineThickness = 1
+_G.LineTransparency = 0.7
+_G.SizeIncrease = 1
+_G.DisableKey = Enum.KeyCode.Q
+
+if _G.DefaultSettings == true then
+    _G.TeamCheck = false
+    _G.BoxesVisible = true
+    _G.LineThickness = 1
+    _G.LineTransparency = 0.5
+    _G.SizeIncrease = 1.5
+    _G.DisableKey = Enum.KeyCode.Q
+end
+
+local function CreateESP(player)
+    if player == Players.LocalPlayer then return end
+
+    local lines = {
+        TopLeft = Drawing.new("Line"),
+        TopRight = Drawing.new("Line"),
+        BottomLeft = Drawing.new("Line"),
+        BottomRight = Drawing.new("Line")
+    }
+
+    for _, line in pairs(lines) do
+        line.Thickness = _G.LineThickness
+        line.Transparency = _G.LineTransparency
+    end
+
+    -- Create name tag drawings: DisplayName, RealName, UserId
+    local displayNameTag = Drawing.new("Text")
+    displayNameTag.Center = true
+    displayNameTag.Outline = false
+    displayNameTag.Font = 2
+    displayNameTag.Size = 16
+
+    local realNameTag = Drawing.new("Text")
+    realNameTag.Center = true
+    realNameTag.Outline = false
+    realNameTag.Font = 2
+    realNameTag.Size = 14
+
+    local userIdTag = Drawing.new("Text")
+    userIdTag.Center = true
+    userIdTag.Outline = false
+    userIdTag.Font = 2
+    userIdTag.Size = 12
+
+
+
+    RunService.RenderStepped:Connect(function()
+        local char = player.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+
+        if char and hrp and humanoid and humanoid.Health > 0 then
+            local cf, size = hrp.CFrame, hrp.Size * _G.SizeIncrease
+            local positions = {
+                TopLeft = Camera:WorldToViewportPoint(cf * CFrame.new(size.X,  size.Y, 0).p),
+                TopRight = Camera:WorldToViewportPoint(cf * CFrame.new(-size.X,  size.Y, 0).p),
+                BottomLeft = Camera:WorldToViewportPoint(cf * CFrame.new(size.X, -size.Y, 0).p),
+                BottomRight = Camera:WorldToViewportPoint(cf * CFrame.new(-size.X, -size.Y, 0).p),
+                HeadPosition = Camera:WorldToViewportPoint((char.Head and char.Head.Position or hrp.Position) + Vector3.new(0, 2, 0))
+            }
+
+            local color = player.TeamColor and player.TeamColor.Color or Color3.new(1, 1, 1)
+
+            -- Box color & visibility logic
+            for _, line in pairs(lines) do
+                line.Color = color
+                line.Visible = false
+            end
+
+            if positions.TopLeft.Z > 0 and positions.TopRight.Z > 0 and positions.BottomLeft.Z > 0 and positions.BottomRight.Z > 0 then
+                if not _G.TeamCheck or Players.LocalPlayer.Team ~= player.Team then
+                    lines.TopLeft.From = Vector2.new(positions.TopLeft.X, positions.TopLeft.Y)
+                    lines.TopLeft.To   = Vector2.new(positions.TopRight.X, positions.TopRight.Y)
+
+                    lines.TopRight.From = Vector2.new(positions.TopRight.X, positions.TopRight.Y)
+                    lines.TopRight.To   = Vector2.new(positions.BottomRight.X, positions.BottomRight.Y)
+
+                    lines.BottomRight.From = Vector2.new(positions.BottomRight.X, positions.BottomRight.Y)
+                    lines.BottomRight.To   = Vector2.new(positions.BottomLeft.X, positions.BottomLeft.Y)
+
+                    lines.BottomLeft.From = Vector2.new(positions.BottomLeft.X, positions.BottomLeft.Y)
+                    lines.BottomLeft.To   = Vector2.new(positions.TopLeft.X, positions.TopLeft.Y)
+
+                    for _, line in pairs(lines) do
+                        line.Visible = _G.BoxesVisible
+                    end
+                end
+            end
+
+            -- Show the stacked name tags above the head
+            if positions.HeadPosition.Z > 0 then
+                if not _G.TeamCheck or Players.LocalPlayer.Team ~= player.Team then
+                    local baseX, baseY = positions.HeadPosition.X, positions.HeadPosition.Y
+
+                    displayNameTag.Position = Vector2.new(baseX, baseY - 20)
+                    displayNameTag.Color = color
+                    displayNameTag.Text = player.DisplayName
+                    displayNameTag.Visible = _G.BoxesVisible
+
+                    realNameTag.Position = Vector2.new(baseX, baseY - 8)
+                    realNameTag.Color = color
+                    realNameTag.Text = "(@" .. player.Name .. ")"
+                    realNameTag.Visible = _G.BoxesVisible
+
+                    userIdTag.Position = Vector2.new(baseX, baseY + 6)
+                    userIdTag.Color = color
+                    userIdTag.Text = "UserID: " .. player.UserId
+                    userIdTag.Visible = _G.BoxesVisible
+                else
+                    displayNameTag.Visible = false
+                    realNameTag.Visible = false
+                    userIdTag.Visible = false
+                end
+            else
+                displayNameTag.Visible = false
+                realNameTag.Visible = false
+                userIdTag.Visible = false
+            end
+        else
+            for _, line in pairs(lines) do
+                line.Visible = false
+            end
+            displayNameTag.Visible = false
+            realNameTag.Visible = false
+            userIdTag.Visible = false
+        end
+    end)
+
+    Players.PlayerRemoving:Connect(function(leavingPlayer)
+        if leavingPlayer == player then
+            for _, line in pairs(lines) do
+                line.Visible = false
+                line:Remove()
+            end
+            displayNameTag.Visible = false
+            displayNameTag:Remove()
+            realNameTag.Visible = false
+            realNameTag:Remove()
+            userIdTag.Visible = false
+            userIdTag:Remove()
+        end
+    end)
+end
+
+-- Initial ESP for all current players
+for _, player in pairs(Players:GetPlayers()) do
+    CreateESP(player)
+end
+
+-- Handle players joining
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        CreateESP(player)
+    end)
+end)
+
+-- Handle enabling/disabling ESP
+UserInputService.TextBoxFocused:Connect(function()
+    Typing = true
+end)
+
+UserInputService.TextBoxFocusReleased:Connect(function()
+    Typing = false
+end)
+
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == _G.DisableKey and not Typing then
+        _G.BoxesVisible = not _G.BoxesVisible
+        if _G.SendNotifications then
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "Exunys Developer",
+                Text = "The boxes' visibility is now set to " .. tostring(_G.BoxesVisible),
+                Duration = 5
+            })
+        end
+    end
+end)
+
+-- Final notification
+local Success, ErrorMessage = pcall(function()
+    -- Already handled above
+end)
+
+if Success then
+    if _G.SendNotifications then
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "Exunys Developer",
+            Text = "Boxes script has successfully loaded.",
+            Duration = 5
+        })
+    end
+else
+    if _G.SendNotifications then
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "Exunys Developer",
+            Text = "Boxes script has errored while loading. Check console (F9).",
+            Duration = 5
+        })
+    end
+    warn(ErrorMessage)
+end
