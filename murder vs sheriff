@@ -1,3 +1,4 @@
+-- DUELS - Murderers VS Sheriffs Script with Full GUI Features
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -13,67 +14,50 @@ local Window = Rayfield:CreateWindow({
     KeySystem = false,
 })
 
--- === Variables to control toggles ===
 local espEnabled = false
 local silentAimEnabled = false
 local autoKnifeEnabled = false
 local autoKitEnabled = false
+local hitboxExpanderEnabled = false
+local hitboxSize = Vector3.new(5, 5, 5)
+local hitboxTransparency = 0.5
+local onlyAffectEnemies = true
+local useWhitelist = false
+local playerList = { Whitelist = {}, Blacklist = {} }
+
+-- === GUI Tab ===
+local FeaturesTab = Window:CreateTab("Features", 4483362458)
 
 -- === ESP Implementation ===
-local espObjects = {}
+local espObjects, espConnections = {}, {}
 
 local function createESP(player)
     if player == LocalPlayer then return end
     local box = Instance.new("BoxHandleAdornment")
-    box.Adornee = nil
-    box.Color3 = Color3.new(1, 0, 0)
-    box.AlwaysOnTop = true
-    box.ZIndex = 10
-    box.Size = Vector3.new(4, 6, 1)
-    box.Transparency = 0.5
-    box.Parent = workspace
+    box.Color3, box.AlwaysOnTop, box.ZIndex = Color3.new(1, 0, 0), true, 10
+    box.Size, box.Transparency, box.Parent = Vector3.new(4, 6, 1), 0.5, workspace
 
     local nameTag = Instance.new("BillboardGui")
-    nameTag.Adornee = nil
-    nameTag.AlwaysOnTop = true
-    nameTag.Size = UDim2.new(0, 100, 0, 20)
-    nameTag.StudsOffset = Vector3.new(0, 3, 0)
-    nameTag.Parent = workspace
+    nameTag.Size, nameTag.StudsOffset, nameTag.AlwaysOnTop, nameTag.Parent = UDim2.new(0, 100, 0, 20), Vector3.new(0, 3, 0), true, workspace
 
     local label = Instance.new("TextLabel")
-    label.Text = player.Name
-    label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.new(1, 1, 1)
-    label.Size = UDim2.new(1, 0, 1, 0)
-    label.Parent = nameTag
+    label.Text, label.BackgroundTransparency, label.TextColor3, label.Size, label.Parent = player.Name, 1, Color3.new(1, 1, 1), UDim2.new(1, 0, 1, 0), nameTag
 
-    espObjects[player] = {box = box, nameTag = nameTag}
+    espObjects[player] = { box = box, nameTag = nameTag }
 
-    local function update()
+    return RunService.Heartbeat:Connect(function()
         if not espEnabled then
-            box.Adornee = nil
-            nameTag.Adornee = nil
-            nameTag.Enabled = false
+            box.Adornee, nameTag.Adornee, nameTag.Enabled = nil, nil, false
             return
         end
         local character = player.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
-            box.Adornee = character.HumanoidRootPart
-            nameTag.Adornee = character.HumanoidRootPart
-            box.Size = Vector3.new(4, 6, 1)
-            box.Transparency = 0.5
-            nameTag.Enabled = true
+            box.Adornee, nameTag.Adornee, nameTag.Enabled = character.HumanoidRootPart, character.HumanoidRootPart, true
         else
-            box.Adornee = nil
-            nameTag.Adornee = nil
-            nameTag.Enabled = false
+            box.Adornee, nameTag.Adornee, nameTag.Enabled = nil, nil, false
         end
-    end
-
-    return RunService.Heartbeat:Connect(update)
+    end)
 end
-
-local espConnections = {}
 
 local function enableESP(value)
     espEnabled = value
@@ -84,10 +68,8 @@ local function enableESP(value)
             end
         end
     else
-        for player, esp in pairs(espObjects) do
-            esp.box.Adornee = nil
-            esp.nameTag.Adornee = nil
-            esp.nameTag.Enabled = false
+        for _, esp in pairs(espObjects) do
+            esp.box.Adornee, esp.nameTag.Adornee, esp.nameTag.Enabled = nil, nil, false
         end
         for _, connection in pairs(espConnections) do
             connection:Disconnect()
@@ -97,77 +79,36 @@ local function enableESP(value)
 end
 
 Players.PlayerAdded:Connect(function(player)
-    if espEnabled then
-        espConnections[player] = createESP(player)
-    end
+    if espEnabled then espConnections[player] = createESP(player) end
 end)
-
 Players.PlayerRemoving:Connect(function(player)
-    if espConnections[player] then
-        espConnections[player]:Disconnect()
-        espConnections[player] = nil
-    end
+    if espConnections[player] then espConnections[player]:Disconnect() end
     if espObjects[player] then
         if espObjects[player].box then espObjects[player].box:Destroy() end
         if espObjects[player].nameTag then espObjects[player].nameTag:Destroy() end
-        espObjects[player] = nil
     end
+    espConnections[player], espObjects[player] = nil, nil
 end)
 
--- === Silent Aim Skeleton ===
-local function getClosestTarget()
-    local closestPlayer = nil
-    local shortestDistance = math.huge
-    local centerX, centerY = Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2
-
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local pos, onScreen = Camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
-            if onScreen then
-                local dist = (Vector2.new(pos.X, pos.Y) - Vector2.new(centerX, centerY)).Magnitude
-                if dist < shortestDistance then
-                    shortestDistance = dist
-                    closestPlayer = player
-                end
-            end
-        end
-    end
-    return closestPlayer
-end
-
-local silentAimConnection
-
+-- === Silent Aim Placeholder ===
 local function toggleSilentAim(value)
     silentAimEnabled = value
-    if silentAimEnabled then
-        -- Placeholder: Implement hooking with game shooting system
-        print("[Silent Aim] ENABLED - Implement hook here")
-    else
-        if silentAimConnection then
-            silentAimConnection:Disconnect()
-            silentAimConnection = nil
-        end
-        print("[Silent Aim] DISABLED")
-    end
+    print("[Silent Aim]", value and "ENABLED" or "DISABLED")
 end
 
 -- === Auto Knife ===
 local autoKnifeThread
-
 local function toggleAutoKnife(value)
     autoKnifeEnabled = value
-    if autoKnifeEnabled then
+    if value then
         autoKnifeThread = task.spawn(function()
             while autoKnifeEnabled do
                 local character = LocalPlayer.Character
                 if character and character:FindFirstChild("HumanoidRootPart") then
                     for _, player in pairs(Players:GetPlayers()) do
                         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                            local distance = (character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
-                            if distance < 5 then
+                            if (character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude < 5 then
                                 print("Auto Knife attacking:", player.Name)
-                                -- Example remote event:
-                                -- game:GetService("ReplicatedStorage").KnifeEvent:FireServer(player.Character.HumanoidRootPart)
                             end
                         end
                     end
@@ -176,67 +117,103 @@ local function toggleAutoKnife(value)
             end
         end)
     else
-        autoKnifeEnabled = false
-        if autoKnifeThread then
-            autoKnifeThread = nil
-        end
+        autoKnifeThread = nil
     end
 end
 
 -- === Auto Kit Selection ===
-local function selectKit()
-    print("Auto kit selection triggered (replace with actual event call)")
-    -- Example:
-    -- game:GetService("ReplicatedStorage").SelectKit:FireServer("Sheriff")
-end
-
 local autoKitConnection
-
 local function toggleAutoKit(value)
     autoKitEnabled = value
-    if autoKitEnabled then
+    if value then
         if not autoKitConnection then
             autoKitConnection = LocalPlayer.CharacterAdded:Connect(function()
                 task.wait(1)
-                selectKit()
+                print("Auto kit selection triggered")
             end)
         end
-        if LocalPlayer.Character then
-            selectKit()
-        end
-    else
-        if autoKitConnection then
-            autoKitConnection:Disconnect()
-            autoKitConnection = nil
-        end
+        if LocalPlayer.Character then print("Auto kit selection triggered") end
+    elseif autoKitConnection then
+        autoKitConnection:Disconnect()
+        autoKitConnection = nil
     end
 end
 
--- === GUI Tabs & Toggles ===
-local FeaturesTab = Window:CreateTab("Features", 4483362458)
+-- === Hitbox Expander ===
+local hitboxExpanderThread
+local function resizeHead(part)
+    if part then
+        part.Size = hitboxSize
+        part.Transparency = hitboxTransparency
+        part.CanCollide = false
+    end
+end
 
-FeaturesTab:CreateToggle({
-    Name = "ESP",
-    CurrentValue = false,
-    Callback = enableESP,
+local function stopResizing(part)
+    return part and part.Size == Vector3.new(10, 15, 15)
+end
+
+local function isTargetable(player)
+    if player == LocalPlayer then return false end
+    if useWhitelist then return table.find(playerList.Whitelist, player.Name)
+    else return not table.find(playerList.Blacklist, player.Name) end
+end
+
+local function runHitboxExpander()
+    while hitboxExpanderEnabled do
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player.Character and isTargetable(player) then
+                local head = player.Character:FindFirstChild("Head")
+                if head and not stopResizing(head) then
+                    if onlyAffectEnemies and player.Team ~= LocalPlayer.Team or not onlyAffectEnemies then
+                        resizeHead(head)
+                    end
+                end
+            end
+        end
+        task.wait(3)
+    end
+end
+
+local function toggleHitboxExpander(value)
+    hitboxExpanderEnabled = value
+    if value and not hitboxExpanderThread then
+        hitboxExpanderThread = task.spawn(runHitboxExpander)
+    else
+        hitboxExpanderThread = nil
+    end
+end
+
+-- === GUI Toggles ===
+FeaturesTab:CreateToggle({ Name = "ESP", CurrentValue = false, Callback = enableESP })
+FeaturesTab:CreateToggle({ Name = "Silent Aim (Placeholder)", CurrentValue = false, Callback = toggleSilentAim })
+FeaturesTab:CreateToggle({ Name = "Auto Knife", CurrentValue = false, Callback = toggleAutoKnife })
+FeaturesTab:CreateToggle({ Name = "Auto Kit Select", CurrentValue = false, Callback = toggleAutoKit })
+
+FeaturesTab:CreateToggle({ Name = "Hitbox Expander", CurrentValue = false, Callback = toggleHitboxExpander })
+FeaturesTab:CreateSlider({ Name = "Hitbox Size", Range = {3, 15}, Increment = 1, Suffix = "Size", CurrentValue = 5, Callback = function(v) hitboxSize = Vector3.new(v, v, v) end })
+FeaturesTab:CreateToggle({ Name = "Only Enemies", CurrentValue = true, Callback = function(v) onlyAffectEnemies = v end })
+FeaturesTab:CreateToggle({ Name = "Use Whitelist Instead of Blacklist", CurrentValue = false, Callback = function(v) useWhitelist = v end })
+
+-- Simple input system (can be expanded)
+FeaturesTab:CreateInput({
+    Name = "Add to Whitelist",
+    PlaceholderText = "Enter player name",
+    RemoveTextAfterFocusLost = true,
+    Callback = function(input)
+        table.insert(playerList.Whitelist, input)
+        print("Added to Whitelist:", input)
+    end
 })
 
-FeaturesTab:CreateToggle({
-    Name = "Silent Aim (Placeholder)",
-    CurrentValue = false,
-    Callback = toggleSilentAim,
+FeaturesTab:CreateInput({
+    Name = "Add to Blacklist",
+    PlaceholderText = "Enter player name",
+    RemoveTextAfterFocusLost = true,
+    Callback = function(input)
+        table.insert(playerList.Blacklist, input)
+        print("Added to Blacklist:", input)
+    end
 })
 
-FeaturesTab:CreateToggle({
-    Name = "Auto Knife",
-    CurrentValue = false,
-    Callback = toggleAutoKnife,
-})
-
-FeaturesTab:CreateToggle({
-    Name = "Auto Kit Select",
-    CurrentValue = false,
-    Callback = toggleAutoKit,
-})
-
-print("DUELS - Murderers VS Sheriffs script loaded. Use toggles to enable features.")
+print("[DUELS Script] All features initialized.")
