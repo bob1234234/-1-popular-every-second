@@ -96,6 +96,31 @@ end
 -- Main logic
 scanRemotes()
 
+-- Fire all remotes button
+Tab:CreateButton({
+    Name = "🔥 Fire All Remotes",
+    Callback = function()
+        local count = 0
+        for _, remote in ipairs(remotes) do
+            local success = pcall(function()
+                if remote:IsA("RemoteEvent") then
+                    remote:FireServer()
+                elseif remote:IsA("RemoteFunction") then
+                    remote:InvokeServer()
+                end
+            end)
+            if success then count += 1 end
+        end
+
+        Rayfield:Notify({
+            Title = "Fire All Remotes",
+            Content = "Attempted to fire " .. count .. " remotes.",
+            Duration = 4
+        })
+    end
+})
+
+-- Search box
 Tab:CreateInput({
     Name = "Search Remotes",
     PlaceholderText = "Enter part of remote name...",
@@ -105,4 +130,5 @@ Tab:CreateInput({
     end,
 })
 
+-- Initial display
 showRemotes("")
