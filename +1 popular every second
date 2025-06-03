@@ -3,8 +3,8 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 -- Create the main window
 local Window = Rayfield:CreateWindow({
-    Name = "Teleport Script Library",
-    LoadingTitle = "Teleporting...",
+    Name = "+1 Popular every second",
+    LoadingTitle = "infinite followers",
     LoadingSubtitle = "by Zxeraas",
     ConfigurationSaving = {
         Enabled = false
