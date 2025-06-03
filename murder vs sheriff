@@ -2,6 +2,7 @@
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
@@ -15,7 +16,7 @@ local Window = Rayfield:CreateWindow({
 })
 
 local espEnabled = false
-local silentAimEnabled = false
+local aimbotEnabled = false
 local autoKnifeEnabled = false
 local autoKitEnabled = false
 local hitboxExpanderEnabled = false
@@ -25,34 +26,62 @@ local onlyAffectEnemies = true
 local useWhitelist = false
 local playerList = { Whitelist = {}, Blacklist = {} }
 
--- === GUI Tab ===
-local FeaturesTab = Window:CreateTab("Features", 4483362458)
-
 -- === ESP Implementation ===
 local espObjects, espConnections = {}, {}
+
+local function getPlayerTeam(player)
+    -- Defensive check for team, fallback to nil
+    return player.Team or nil
+end
 
 local function createESP(player)
     if player == LocalPlayer then return end
     local box = Instance.new("BoxHandleAdornment")
-    box.Color3, box.AlwaysOnTop, box.ZIndex = Color3.new(1, 0, 0), true, 10
-    box.Size, box.Transparency, box.Parent = Vector3.new(4, 6, 1), 0.5, workspace
+    box.AlwaysOnTop = true
+    box.ZIndex = 10
+    box.Size = Vector3.new(4, 6, 1)
+    box.Transparency = 0.5
+    box.Parent = workspace
 
     local nameTag = Instance.new("BillboardGui")
-    nameTag.Size, nameTag.StudsOffset, nameTag.AlwaysOnTop, nameTag.Parent = UDim2.new(0, 100, 0, 20), Vector3.new(0, 3, 0), true, workspace
+    nameTag.Size = UDim2.new(0, 100, 0, 20)
+    nameTag.StudsOffset = Vector3.new(0, 3, 0)
+    nameTag.AlwaysOnTop = true
+    nameTag.Parent = workspace
 
     local label = Instance.new("TextLabel")
-    label.Text, label.BackgroundTransparency, label.TextColor3, label.Size, label.Parent = player.Name, 1, Color3.new(1, 1, 1), UDim2.new(1, 0, 1, 0), nameTag
+    label.BackgroundTransparency = 1
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.Text = player.Name
+    label.Parent = nameTag
 
-    espObjects[player] = { box = box, nameTag = nameTag }
+    espObjects[player] = { box = box, nameTag = nameTag, label = label }
 
     return RunService.Heartbeat:Connect(function()
         if not espEnabled then
             box.Adornee, nameTag.Adornee, nameTag.Enabled = nil, nil, false
             return
         end
+
         local character = player.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
-            box.Adornee, nameTag.Adornee, nameTag.Enabled = character.HumanoidRootPart, character.HumanoidRootPart, true
+            box.Adornee = character.HumanoidRootPart
+            nameTag.Adornee = character.HumanoidRootPart
+            nameTag.Enabled = true
+
+            -- Set label color by team relation
+            local enemy = false
+            if onlyAffectEnemies then
+                enemy = getPlayerTeam(player) ~= getPlayerTeam(LocalPlayer)
+            end
+
+            if enemy then
+                label.TextColor3 = Color3.new(1, 0, 0) -- Red for enemies
+                box.Color3 = Color3.new(1, 0, 0)
+            else
+                label.TextColor3 = Color3.new(0, 0, 1) -- Blue for teammates/others
+                box.Color3 = Color3.new(0, 0, 1)
+            end
         else
             box.Adornee, nameTag.Adornee, nameTag.Enabled = nil, nil, false
         end
@@ -90,10 +119,73 @@ Players.PlayerRemoving:Connect(function(player)
     espConnections[player], espObjects[player] = nil, nil
 end)
 
--- === Silent Aim Placeholder ===
-local function toggleSilentAim(value)
-    silentAimEnabled = value
-    print("[Silent Aim]", value and "ENABLED" or "DISABLED")
+-- === Aimbot Implementation ===
+local aimbotFOV = 100
+local aimbotFOVCircle = Drawing.new("Circle")
+aimbotFOVCircle.Radius = aimbotFOV
+aimbotFOVCircle.Color = Color3.fromRGB(0, 255, 0)
+aimbotFOVCircle.Thickness = 1
+aimbotFOVCircle.NumSides = 64
+aimbotFOVCircle.Filled = false
+aimbotFOVCircle.Transparency = 0.5
+aimbotFOVCircle.Visible = false
+
+local function getClosestTarget()
+    local closestPlayer = nil
+    local shortestDistance = math.huge
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            if onlyAffectEnemies and player.Team == LocalPlayer.Team then
+                continue
+            end
+            if useWhitelist and not table.find(playerList.Whitelist, player.Name) then
+                continue
+            elseif not useWhitelist and table.find(playerList.Blacklist, player.Name) then
+                continue
+            end
+            local screenPos, onScreen = Camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
+            if onScreen then
+                local mousePos = UserInputService:GetMouseLocation()
+                local dist = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(mousePos.X, mousePos.Y)).Magnitude
+                if dist < shortestDistance and dist <= aimbotFOV then
+                    shortestDistance = dist
+                    closestPlayer = player
+                end
+            end
+        end
+    end
+    return closestPlayer
+end
+
+local aimbotConnection
+local function toggleAimbot(enabled)
+    aimbotEnabled = enabled
+    aimbotFOVCircle.Visible = enabled
+
+    if aimbotConnection then
+        aimbotConnection:Disconnect()
+        aimbotConnection = nil
+    end
+
+    if enabled then
+        aimbotConnection = RunService.RenderStepped:Connect(function()
+            -- Update FOV circle position
+            local mousePos = UserInputService:GetMouseLocation()
+            aimbotFOVCircle.Position = Vector2.new(mousePos.X, mousePos.Y)
+
+            if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+                local target = getClosestTarget()
+                if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                    local targetPos = target.Character.HumanoidRootPart.Position
+                    local cameraPos = Camera.CFrame.Position
+                    local direction = (targetPos - cameraPos).Unit
+                    Camera.CFrame = CFrame.new(cameraPos, cameraPos + direction)
+                end
+            end
+        end)
+    else
+        aimbotFOVCircle.Visible = false
+    end
 end
 
 -- === Auto Knife ===
@@ -109,6 +201,7 @@ local function toggleAutoKnife(value)
                         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
                             if (character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude < 5 then
                                 print("Auto Knife attacking:", player.Name)
+                                -- Insert your actual knife attack logic here
                             end
                         end
                     end
@@ -130,6 +223,7 @@ local function toggleAutoKit(value)
             autoKitConnection = LocalPlayer.CharacterAdded:Connect(function()
                 task.wait(1)
                 print("Auto kit selection triggered")
+                -- Insert actual kit selection logic here
             end)
         end
         if LocalPlayer.Character then print("Auto kit selection triggered") end
@@ -155,8 +249,11 @@ end
 
 local function isTargetable(player)
     if player == LocalPlayer then return false end
-    if useWhitelist then return table.find(playerList.Whitelist, player.Name)
-    else return not table.find(playerList.Blacklist, player.Name) end
+    if useWhitelist then
+        return table.find(playerList.Whitelist, player.Name)
+    else
+        return not table.find(playerList.Blacklist, player.Name)
+    end
 end
 
 local function runHitboxExpander()
@@ -184,36 +281,93 @@ local function toggleHitboxExpander(value)
     end
 end
 
--- === GUI Toggles ===
-FeaturesTab:CreateToggle({ Name = "ESP", CurrentValue = false, Callback = enableESP })
-FeaturesTab:CreateToggle({ Name = "Silent Aim (Placeholder)", CurrentValue = false, Callback = toggleSilentAim })
-FeaturesTab:CreateToggle({ Name = "Auto Knife", CurrentValue = false, Callback = toggleAutoKnife })
-FeaturesTab:CreateToggle({ Name = "Auto Kit Select", CurrentValue = false, Callback = toggleAutoKit })
+-- === GUI Tabs ===
+local AimbotTab = Window:CreateTab("Aimbot", 4483362458)
+local HitboxTab = Window:CreateTab("Hitbox", 4483362458)
+local GeneralTab = Window:CreateTab("General", 4483362458)
 
-FeaturesTab:CreateToggle({ Name = "Hitbox Expander", CurrentValue = false, Callback = toggleHitboxExpander })
-FeaturesTab:CreateSlider({ Name = "Hitbox Size", Range = {3, 15}, Increment = 1, Suffix = "Size", CurrentValue = 5, Callback = function(v) hitboxSize = Vector3.new(v, v, v) end })
-FeaturesTab:CreateToggle({ Name = "Only Enemies", CurrentValue = true, Callback = function(v) onlyAffectEnemies = v end })
-FeaturesTab:CreateToggle({ Name = "Use Whitelist Instead of Blacklist", CurrentValue = false, Callback = function(v) useWhitelist = v end })
+-- Aimbot Tab Controls
+AimbotTab:CreateToggle({
+    Name = "Aimbot (Right Click to Aim)",
+    CurrentValue = false,
+    Callback = toggleAimbot,
+})
+AimbotTab:CreateSlider({
+    Name = "Aimbot FOV",
+    Range = {50, 300},
+    Increment = 5,
+    Suffix = "px",
+    CurrentValue = aimbotFOV,
+    Callback = function(value)
+        aimbotFOV = value
+        aimbotFOVCircle.Radius = value
+    end,
+})
 
--- Simple input system (can be expanded)
-FeaturesTab:CreateInput({
+-- Hitbox Tab Controls
+HitboxTab:CreateToggle({
+    Name = "Hitbox Expander",
+    CurrentValue = false,
+    Callback = toggleHitboxExpander,
+})
+HitboxTab:CreateSlider({
+    Name = "Hitbox Size",
+    Range = {3, 15},
+    Increment = 1,
+    Suffix = "Size",
+    CurrentValue = 5,
+    Callback = function(value)
+        hitboxSize = Vector3.new(value, value, value)
+    end,
+})
+HitboxTab:CreateToggle({
+    Name = "Only Enemies",
+    CurrentValue = true,
+    Callback = function(value)
+        onlyAffectEnemies = value
+    end,
+})
+HitboxTab:CreateToggle({
+    Name = "Use Whitelist Instead of Blacklist",
+    CurrentValue = false,
+    Callback = function(value)
+        useWhitelist = value
+    end,
+})
+HitboxTab:CreateInput({
     Name = "Add to Whitelist",
     PlaceholderText = "Enter player name",
     RemoveTextAfterFocusLost = true,
     Callback = function(input)
         table.insert(playerList.Whitelist, input)
         print("Added to Whitelist:", input)
-    end
+    end,
 })
-
-FeaturesTab:CreateInput({
+HitboxTab:CreateInput({
     Name = "Add to Blacklist",
     PlaceholderText = "Enter player name",
     RemoveTextAfterFocusLost = true,
     Callback = function(input)
         table.insert(playerList.Blacklist, input)
         print("Added to Blacklist:", input)
-    end
+    end,
+})
+
+-- General Tab Controls
+GeneralTab:CreateToggle({
+    Name = "ESP",
+    CurrentValue = false,
+    Callback = enableESP,
+})
+GeneralTab:CreateToggle({
+    Name = "Auto Knife",
+    CurrentValue = false,
+    Callback = toggleAutoKnife,
+})
+GeneralTab:CreateToggle({
+    Name = "Auto Kit Selection",
+    CurrentValue = false,
+    Callback = toggleAutoKit,
 })
 
 print("[DUELS Script] All features initialized.")
