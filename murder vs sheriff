@@ -8,12 +8,8 @@ local Window = Rayfield:CreateWindow({
     Name = "DUELS - Murderers VS Sheriffs",
     LoadingTitle = "Loading DUELS Script...",
     LoadingSubtitle = "by YourName",
-    ConfigurationSaving = {
-        Enabled = false,
-    },
-    Discord = {
-        Enabled = false,
-    },
+    ConfigurationSaving = { Enabled = false },
+    Discord = { Enabled = false },
     KeySystem = false,
 })
 
@@ -77,29 +73,29 @@ local function createESP(player)
     return RunService.Heartbeat:Connect(update)
 end
 
--- Track ESP connections to disconnect later
 local espConnections = {}
 
 local function enableESP(value)
     espEnabled = value
     if espEnabled then
-        -- Create ESP for all players
         for _, player in pairs(Players:GetPlayers()) do
             if not espConnections[player] then
                 espConnections[player] = createESP(player)
             end
         end
     else
-        -- Disable all ESP adornments
         for player, esp in pairs(espObjects) do
             esp.box.Adornee = nil
             esp.nameTag.Adornee = nil
             esp.nameTag.Enabled = false
         end
+        for _, connection in pairs(espConnections) do
+            connection:Disconnect()
+        end
+        espConnections = {}
     end
 end
 
--- New players join ESP
 Players.PlayerAdded:Connect(function(player)
     if espEnabled then
         espConnections[player] = createESP(player)
@@ -118,8 +114,7 @@ Players.PlayerRemoving:Connect(function(player)
     end
 end)
 
--- === Silent Aim Skeleton (needs game-specific hooking) ===
-
+-- === Silent Aim Skeleton ===
 local function getClosestTarget()
     local closestPlayer = nil
     local shortestDistance = math.huge
@@ -145,9 +140,8 @@ local silentAimConnection
 local function toggleSilentAim(value)
     silentAimEnabled = value
     if silentAimEnabled then
-        -- This is a placeholder. You need to hook into the game's shooting logic to redirect shots to target.
-        -- For example, hooking metatables or remote events to change mouse target.
-        print("[Silent Aim] ENABLED - You need to implement the actual hook based on DUELS internals.")
+        -- Placeholder: Implement hooking with game shooting system
+        print("[Silent Aim] ENABLED - Implement hook here")
     else
         if silentAimConnection then
             silentAimConnection:Disconnect()
@@ -158,7 +152,6 @@ local function toggleSilentAim(value)
 end
 
 -- === Auto Knife ===
-
 local autoKnifeThread
 
 local function toggleAutoKnife(value)
@@ -171,10 +164,10 @@ local function toggleAutoKnife(value)
                     for _, player in pairs(Players:GetPlayers()) do
                         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
                             local distance = (character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
-                            if distance < 5 then -- Knife range, adjust if needed
-                                -- Fire knife attack event (replace with the real event)
+                            if distance < 5 then
                                 print("Auto Knife attacking:", player.Name)
-                                -- Example: game:GetService("ReplicatedStorage").KnifeEvent:FireServer(player.Character.HumanoidRootPart)
+                                -- Example remote event:
+                                -- game:GetService("ReplicatedStorage").KnifeEvent:FireServer(player.Character.HumanoidRootPart)
                             end
                         end
                     end
@@ -192,9 +185,9 @@ end
 
 -- === Auto Kit Selection ===
 local function selectKit()
-    -- Replace with actual kit selection remote event call
-    print("Auto kit selection triggered (replace with real event)")
-    -- Example: game:GetService("ReplicatedStorage").SelectKit:FireServer("Sheriff")
+    print("Auto kit selection triggered (replace with actual event call)")
+    -- Example:
+    -- game:GetService("ReplicatedStorage").SelectKit:FireServer("Sheriff")
 end
 
 local autoKitConnection
@@ -202,14 +195,12 @@ local autoKitConnection
 local function toggleAutoKit(value)
     autoKitEnabled = value
     if autoKitEnabled then
-        -- Listen for character spawn and auto-select kit
         if not autoKitConnection then
             autoKitConnection = LocalPlayer.CharacterAdded:Connect(function()
                 task.wait(1)
                 selectKit()
             end)
         end
-        -- Run once now if character exists
         if LocalPlayer.Character then
             selectKit()
         end
@@ -221,38 +212,31 @@ local function toggleAutoKit(value)
     end
 end
 
--- === GUI Controls ===
+-- === GUI Tabs & Toggles ===
+local FeaturesTab = Window:CreateTab("Features", 4483362458)
 
-local ESPToggle = Window:CreateTab("Features", 4483362458):CreateToggle({
+FeaturesTab:CreateToggle({
     Name = "ESP",
     CurrentValue = false,
-    Callback = function(value)
-        enableESP(value)
-    end,
+    Callback = enableESP,
 })
 
-local SilentAimToggle = Window:CreateTab("Features", 4483362458):CreateToggle({
+FeaturesTab:CreateToggle({
     Name = "Silent Aim (Placeholder)",
     CurrentValue = false,
-    Callback = function(value)
-        toggleSilentAim(value)
-    end,
+    Callback = toggleSilentAim,
 })
 
-local AutoKnifeToggle = Window:CreateTab("Features", 4483362458):CreateToggle({
+FeaturesTab:CreateToggle({
     Name = "Auto Knife",
     CurrentValue = false,
-    Callback = function(value)
-        toggleAutoKnife(value)
-    end,
+    Callback = toggleAutoKnife,
 })
 
-local AutoKitToggle = Window:CreateTab("Features", 4483362458):CreateToggle({
+FeaturesTab:CreateToggle({
     Name = "Auto Kit Select",
     CurrentValue = false,
-    Callback = function(value)
-        toggleAutoKit(value)
-    end,
+    Callback = toggleAutoKit,
 })
 
-print("DUELS Rayfield script loaded. Use toggles to enable/disable features.")
+print("DUELS - Murderers VS Sheriffs script loaded. Use toggles to enable features.")
