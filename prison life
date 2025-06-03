@@ -1,0 +1,258 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "Prison Life GUI",
+    LoadingTitle = "Teleport GUI",
+    LoadingSubtitle = "by your_name",
+    ConfigurationSaving = {
+        Enabled = false
+    },
+    Discord = {
+        Enabled = false
+    },
+    KeySystem = false
+})
+
+-----------------------
+-- Main Tab
+-----------------------
+local MainTab = Window:CreateTab("Main", 0)
+MainTab:CreateSection("Welcome")
+MainTab:CreateLabel("Welcome to Blyu's Prison Life GUI!")
+MainTab:CreateLabel(" ")
+
+MainTab:CreateSection("Update Log")
+MainTab:CreateLabel("- Added Teleports")
+MainTab:CreateLabel("- Added Weapons")
+MainTab:CreateLabel("- Added Teams")
+MainTab:CreateLabel("- Fixed some bugs")
+
+MainTab:CreateSection("Credits")
+MainTab:CreateLabel("Sirius Menu - UI Library")
+MainTab:CreateLabel("Blyu - Script Creator")
+MainTab:CreateLabel("You - Script User")
+
+
+-----------------------
+-- Teleports Tab
+-----------------------
+local TeleportsTab = Window:CreateTab("Teleports", 0) -- Changed icon to 0 (no icon)
+local Section = TeleportsTab:CreateSection("Main Locations")
+
+local function teleportTo(pos)
+    local player = game.Players.LocalPlayer
+    local char = player.Character or player.CharacterAdded:Wait()
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        hrp.CFrame = CFrame.new(pos)
+    end
+end
+
+local locations = {
+    ["Cafeteria"] = Vector3.new(929.41, 99.99, 2289.61),
+    ["Yard"] = Vector3.new(790.59, 98.00, 2456.62),
+    ["Guards Room"] = Vector3.new(835.19, 99.99, 2310.64),
+    ["Camera Room"] = Vector3.new(793.60, 99.99, 2326.43),
+    ["Gun Spawn 1"] = Vector3.new(820.79, 99.99, 2258.81),
+    ["Gun Spawn 2"] = Vector3.new(854.99, 99.99, 2255.26),
+    ["Criminal Room"] = Vector3.new(-927.59, 94.13, 2060.72),
+}
+
+for name, position in pairs(locations) do
+    TeleportsTab:CreateButton({
+        Name = name,
+        Callback = function()
+            teleportTo(position)
+        end,
+    })
+end
+
+-----------------------
+-- Weapons Tab
+-----------------------
+local WeaponsTab = Window:CreateTab("Weapons", 0) -- No icon
+
+WeaponsTab:CreateSection("Tools & Gear")
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+local Player = game.Players.LocalPlayer
+
+-- Adjust the path to your game's actual folders & events
+local ItemHandler = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("ItemHandler")
+
+if not ItemHandler then
+    warn("ItemHandler event not found in ReplicatedStorage.Events")
+end
+
+local function TPCFrame(cframe)
+    if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+        Player.Character.HumanoidRootPart.CFrame = cframe
+        wait(0.15)
+    end
+end
+
+local function giveWeapon(weaponName)
+    local prisonItemsFolder = Workspace:FindFirstChild("Prison_Items") or Workspace:FindFirstChild("Prison_ITEMS")
+    if not prisonItemsFolder then
+        warn("Prison_Items folder not found in Workspace")
+        return
+    end
+    
+    local giver = prisonItemsFolder:FindFirstChild("Giver") or prisonItemsFolder:FindFirstChild("giver")
+    if not giver then
+        warn("Giver not found in Prison_Items")
+        return
+    end
+
+    local weaponFolder = giver:FindFirstChild(weaponName)
+    if not weaponFolder then
+        warn("Weapon folder '" .. weaponName .. "' not found in Giver")
+        return
+    end
+
+    local itemPickup = weaponFolder:FindFirstChild("ITEMPICKUP")
+    if not itemPickup then
+        warn("ITEMPICKUP not found for weapon '" .. weaponName .. "'")
+        return
+    end
+
+    local char = Player.Character or Player.CharacterAdded:Wait()
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then
+        warn("Player's HumanoidRootPart not found")
+        return
+    end
+
+    local originalCFrame = hrp.CFrame
+
+    -- Teleport to the weapon pickup
+    hrp.CFrame = itemPickup.CFrame + Vector3.new(0, 3, 0)  -- Raise a bit to avoid stuck
+    
+    wait(0.3) -- Give the game a moment
+
+    if ItemHandler then
+        for i = 1, 5 do  -- More attempts to pick up weapon
+            pcall(function()
+                ItemHandler:InvokeServer(itemPickup)
+            end)
+            wait(0.2)
+        end
+    else
+        warn("ItemHandler not available to invoke")
+    end
+
+    -- Teleport back to original spot
+    hrp.CFrame = originalCFrame
+end
+
+WeaponsTab:CreateButton({
+    Name = "Give All Weapons",
+    Callback = function()
+        local backpack = Player:WaitForChild("Backpack")
+        local toolsFolder = ReplicatedStorage:FindFirstChild("Tools")
+
+        if toolsFolder then
+            for _, tool in ipairs(toolsFolder:GetChildren()) do
+                if tool:IsA("Tool") then
+                    local clonedTool = tool:Clone()
+                    clonedTool.Parent = backpack
+                end
+            end
+        else
+            warn("Tools folder not found in ReplicatedStorage.")
+        end
+    end,
+})
+
+
+local weapons = {"AK-47", "Remington 870", "AS-50", "UZI"}
+
+for _, weaponName in ipairs(weapons) do
+    WeaponsTab:CreateButton({
+        Name = "Give " .. weaponName,
+        Callback = function()
+            giveWeapon(weaponName)
+        end,
+    })
+end
+
+-----------------------
+-- Teams Tab
+-----------------------
+local TeamsTab = Window:CreateTab("Teams", 0)
+TeamsTab:CreateSection("Switch Teams")
+
+local TeamEvent = workspace:WaitForChild("Remote"):WaitForChild("TeamEvent")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local function changeTeam(teamColorName)
+    if not TeamEvent then
+        warn("TeamEvent remote not found!")
+        return
+    end
+
+    pcall(function()
+        TeamEvent:FireServer(teamColorName)
+    end)
+end
+
+TeamsTab:CreateButton({
+    Name = "Join Guards",
+    Callback = function()
+        changeTeam("Bright blue")
+    end,
+})
+
+TeamsTab:CreateButton({
+    Name = "Join Criminals",
+    Callback = function()
+        local player = game.Players.LocalPlayer
+        local char = player.Character or player.CharacterAdded:Wait()
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local originalCFrame = hrp.CFrame
+            local criminalSpawn = CFrame.new(-919.12, 95.33, 2133.27)
+            
+            hrp.CFrame = criminalSpawn
+            wait(0.1)
+            hrp.CFrame = originalCFrame
+        end
+    end,
+})
+
+
+
+
+TeamsTab:CreateButton({
+    Name = "Join Inmates",
+    Callback = function()
+        changeTeam("Bright orange")
+    end,
+})
+
+TeamsTab:CreateButton({
+    Name = "Go Neutral",
+    Callback = function()
+       changeTeam("Medium stone grey")
+    end,
+})
+
+TeamsTab:CreateButton({
+    Name = "Join Purple Team (Client Side)",
+    Callback = function()
+        local TeamsService = game:GetService("Teams")
+        local player = LocalPlayer
+        local purple = TeamsService:FindFirstChild("Purple")
+        if not purple then
+            purple = Instance.new("Team")
+            purple.Name = "Purple"
+            purple.TeamColor = BrickColor.new("Royal purple")
+            purple.AutoAssignable = false
+            purple.Parent = TeamsService
+        end
+        player.Team = purple
+        player.Neutral = false
+    end,
+})
