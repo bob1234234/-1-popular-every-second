@@ -1,0 +1,108 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "Remote Viewer",
+    LoadingTitle = "Remote Scanner",
+    LoadingSubtitle = "By ChatGPT",
+    ConfigurationSaving = {
+        Enabled = false
+    }
+})
+
+local Tab = Window:CreateTab("Remotes", 4483362458)
+
+local Section = Tab:CreateSection("Search and View")
+
+-- Store remotes
+local remotes = {}
+
+-- Helper: Get full path
+local function getFullPath(inst)
+    local path = {}
+    while inst and inst ~= game do
+        table.insert(path, 1, inst.Name)
+        inst = inst.Parent
+    end
+    return table.concat(path, ".")
+end
+
+-- Scan for remotes
+local function scanRemotes()
+    remotes = {}
+    for _, obj in ipairs(game:GetDescendants()) do
+        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+            table.insert(remotes, obj)
+        end
+    end
+end
+
+-- Clipboard helper
+local copyToClipboard = setclipboard or toclipboard or function(text)
+    print("Clipboard unsupported. Path:", text)
+end
+
+-- UI refresh function
+local function showRemotes(filter)
+    Tab:CreateSection("Remotes Matching: " .. (filter ~= "" and filter or "All"))
+
+    local count = 0
+    for i, remote in ipairs(remotes) do
+        if remote.Name:lower():find(filter:lower()) then
+            count += 1
+            local label = string.format("%d. [%s] %s", count, remote.ClassName, remote.Name)
+
+            Tab:CreateButton({
+                Name = label,
+                Callback = function()
+                    local path = getFullPath(remote)
+                    copyToClipboard(path)
+                    Rayfield:Notify({
+                        Title = "Copied",
+                        Content = "Path: " .. path,
+                        Duration = 3
+                    })
+                end,
+            })
+
+            Tab:CreateButton({
+                Name = "↳ Execute " .. remote.Name,
+                Callback = function()
+                    local success, err = pcall(function()
+                        if remote:IsA("RemoteEvent") then
+                            remote:FireServer()
+                        elseif remote:IsA("RemoteFunction") then
+                            remote:InvokeServer()
+                        end
+                    end)
+
+                    Rayfield:Notify({
+                        Title = success and "Executed" or "Error",
+                        Content = success and "✅ Remote called." or tostring(err),
+                        Duration = 3
+                    })
+                end,
+            })
+        end
+    end
+
+    if count == 0 then
+        Tab:CreateParagraph({
+            Title = "No Matches",
+            Content = "No remotes matched your search."
+        })
+    end
+end
+
+-- Main logic
+scanRemotes()
+
+Tab:CreateInput({
+    Name = "Search Remotes",
+    PlaceholderText = "Enter part of remote name...",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(input)
+        showRemotes(input)
+    end,
+})
+
+showRemotes("")
