@@ -1,0 +1,57 @@
+-- Load Rayfield UI
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- Create the window
+local Window = Rayfield:CreateWindow({
+    Name = "Deadly Indian Truck Driving",
+    LoadingTitle = "Auto Farm GUI",
+    LoadingSubtitle = "by You",
+    ConfigurationSaving = { Enabled = false },
+    Discord = { Enabled = false },
+    KeySystem = false,
+})
+
+-- Create tab and section
+local MainTab = Window:CreateTab("Main", 4483362458)
+MainTab:CreateSection("Auto Farm")
+
+-- Checkpoints
+local checkpoints = {
+    Vector3.new(1708.05, 229.95, -1163.87),      -- Checkpoint 1
+    Vector3.new(1173.94, 309.21, -5291.92),      -- Checkpoint 2
+    Vector3.new(-2495.68, 375.05, -10204.47),    -- Checkpoint 3
+    Vector3.new(-5831.02, 395.60, -12107.80),    -- Checkpoint 4
+    Vector3.new(-5865.32, 395.65, -12114.53),    -- Checkpoint 5 (final)
+}
+
+-- Auto Farm logic
+local autoFarm = false
+
+MainTab:CreateToggle({
+    Name = "Auto Farm",
+    CurrentValue = false,
+    Callback = function(state)
+        autoFarm = state
+
+        while autoFarm do
+            for _, pos in ipairs(checkpoints) do
+                local player = game:GetService("Players").LocalPlayer
+                local char = player.Character or player.CharacterAdded:Wait()
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+
+                if hrp then
+                    -- Teleport to checkpoint
+                    hrp.CFrame = CFrame.new(pos)
+                    wait(1)
+
+                    -- Walk forward (simulate progress)
+                    hrp.CFrame = hrp.CFrame + hrp.CFrame.LookVector * 10
+                end
+
+                wait(1.5)
+                if not autoFarm then break end
+            end
+            wait(2)
+        end
+    end
+})
