@@ -1,25 +1,126 @@
+-- Load Rayfield UI Library
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
+-- Create the GUI Window
 local Window = Rayfield:CreateWindow({
     Name = "Prison Life",
     LoadingTitle = "scriptz 4 l4fe",
     LoadingSubtitle = "by Zxeraas",
-    ConfigurationSaving = {
-        Enabled = false
-    },
-    Discord = {
-        Enabled = false
-    },
+    ConfigurationSaving = { Enabled = false },
+    Discord = { Enabled = false },
     KeySystem = false
 })
 
------------------------
--- Main Tab
------------------------
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+local TeamsService = game:GetService("Teams")
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+
+-- === FPS + Ping Display ===
+local statsGui = Instance.new("ScreenGui", game.CoreGui)
+statsGui.Name = "StatsDisplay"
+
+local textLabel = Instance.new("TextLabel", statsGui)
+textLabel.Position = UDim2.new(0, 10, 1, -30)
+textLabel.Size = UDim2.new(0, 220, 0, 25)
+textLabel.TextColor3 = Color3.new(1, 1, 1)
+textLabel.BackgroundTransparency = 1
+textLabel.TextXAlignment = Enum.TextXAlignment.Left
+textLabel.Font = Enum.Font.SourceSans
+textLabel.TextSize = 18
+
+local lastUpdate = tick()
+local frameCount = 0
+
+RunService.RenderStepped:Connect(function()
+    frameCount += 1
+    local now = tick()
+    if now - lastUpdate >= 1 then
+        local fps = math.floor(frameCount / (now - lastUpdate))
+        local ping = math.floor(Stats().Network.ServerStatsItem["Data Ping"].Value + 0.5)
+        textLabel.Text = string.format("FPS: %d  |  Ping: %dms", fps, ping)
+        lastUpdate = now
+        frameCount = 0
+    end
+end)
+
+-- === ESP System ===
+local ESPBoxEnabled = false
+local ESPLineEnabled = false
+
+local function createESP(player)
+    local box = Drawing.new("Square")
+    box.Thickness = 1
+    box.Color = Color3.new(1, 0, 0)
+    box.Filled = false
+    box.Visible = false
+
+    local line = Drawing.new("Line")
+    line.Thickness = 1
+    line.Color = Color3.new(1, 0, 0)
+    line.Visible = false
+
+    RunService.RenderStepped:Connect(function()
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = player.Character.HumanoidRootPart
+            local head = player.Character:FindFirstChild("Head")
+
+            if hrp and head then
+                local rootPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                local headPos = Camera:WorldToViewportPoint(head.Position)
+
+                if onScreen then
+                    if ESPBoxEnabled then
+                        box.Size = Vector2.new(40, 60)
+                        box.Position = Vector2.new(rootPos.X - 20, rootPos.Y - 30)
+                        box.Visible = true
+                    else
+                        box.Visible = false
+                    end
+
+                    if ESPLineEnabled then
+                        line.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                        line.To = Vector2.new(rootPos.X, rootPos.Y)
+                        line.Visible = true
+                    else
+                        line.Visible = false
+                    end
+                else
+                    box.Visible = false
+                    line.Visible = false
+                end
+            else
+                box.Visible = false
+                line.Visible = false
+            end
+        else
+            box.Visible = false
+            line.Visible = false
+        end
+    end)
+end
+
+-- ESP for current and joining players
+for _, player in pairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then
+        createESP(player)
+    end
+end
+
+Players.PlayerAdded:Connect(function(player)
+    if player ~= LocalPlayer then
+        createESP(player)
+    end
+end)
+
+-- === Main Tab ===
 local MainTab = Window:CreateTab("Main", 0)
 MainTab:CreateSection("Welcome")
 MainTab:CreateLabel("Welcome to Blyu's Prison Life GUI!")
-MainTab:CreateLabel(" ")
 
 MainTab:CreateSection("Update Log")
 MainTab:CreateLabel("- Added Teleports")
@@ -32,16 +133,27 @@ MainTab:CreateLabel("Sirius Menu - UI Library")
 MainTab:CreateLabel("Blyu - Script Creator")
 MainTab:CreateLabel("You - Script User")
 
+-- === ESP Toggles ===
+MainTab:CreateSection("ESP")
+MainTab:CreateToggle({
+    Name = "ESP Box",
+    CurrentValue = false,
+    Callback = function(Value)
+        ESPBoxEnabled = Value
+    end,
+})
+MainTab:CreateToggle({
+    Name = "ESP Line",
+    CurrentValue = false,
+    Callback = function(Value)
+        ESPLineEnabled = Value
+    end,
+})
 
------------------------
--- Teleports Tab
------------------------
-local TeleportsTab = Window:CreateTab("Teleports", 0) -- Changed icon to 0 (no icon)
-local Section = TeleportsTab:CreateSection("Main Locations")
-
+-- === Teleports Tab ===
+local TeleportsTab = Window:CreateTab("Teleports", 0)
 local function teleportTo(pos)
-    local player = game.Players.LocalPlayer
-    local char = player.Character or player.CharacterAdded:Wait()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if hrp then
         hrp.CFrame = CFrame.new(pos)
@@ -58,201 +170,167 @@ local locations = {
     ["Criminal Room"] = Vector3.new(-927.59, 94.13, 2060.72),
 }
 
-for name, position in pairs(locations) do
+for name, pos in pairs(locations) do
     TeleportsTab:CreateButton({
         Name = name,
         Callback = function()
-            teleportTo(position)
+            teleportTo(pos)
         end,
     })
 end
 
------------------------
--- Weapons Tab
------------------------
-local WeaponsTab = Window:CreateTab("Weapons", 0) -- No icon
-
-WeaponsTab:CreateSection("Tools & Gear")
-
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
-local Player = game.Players.LocalPlayer
-
--- Adjust the path to your game's actual folders & events
+-- === Weapons Tab ===
+local WeaponsTab = Window:CreateTab("Weapons", 0)
 local ItemHandler = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("ItemHandler")
 
-if not ItemHandler then
-    warn("ItemHandler event not found in ReplicatedStorage.Events")
-end
-
-local function TPCFrame(cframe)
-    if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-        Player.Character.HumanoidRootPart.CFrame = cframe
-        wait(0.15)
-    end
-end
-
 local function giveWeapon(weaponName)
-    local prisonItemsFolder = Workspace:FindFirstChild("Prison_Items") or Workspace:FindFirstChild("Prison_ITEMS")
-    if not prisonItemsFolder then
-        warn("Prison_Items folder not found in Workspace")
-        return
-    end
-    
-    local giver = prisonItemsFolder:FindFirstChild("Giver") or prisonItemsFolder:FindFirstChild("giver")
-    if not giver then
-        warn("Giver not found in Prison_Items")
-        return
-    end
+    local prisonItems = Workspace:FindFirstChild("Prison_ITEMS") or Workspace:FindFirstChild("Prison_Items")
+    local giver = prisonItems and (prisonItems:FindFirstChild("Giver") or prisonItems:FindFirstChild("giver"))
+    if not giver then return end
 
-    local weaponFolder = giver:FindFirstChild(weaponName)
-    if not weaponFolder then
-        warn("Weapon folder '" .. weaponName .. "' not found in Giver")
-        return
-    end
+    local folder = giver:FindFirstChild(weaponName)
+    local item = folder and folder:FindFirstChild("ITEMPICKUP")
+    if not item then return end
 
-    local itemPickup = weaponFolder:FindFirstChild("ITEMPICKUP")
-    if not itemPickup then
-        warn("ITEMPICKUP not found for weapon '" .. weaponName .. "'")
-        return
-    end
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
 
-    local char = Player.Character or Player.CharacterAdded:Wait()
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then
-        warn("Player's HumanoidRootPart not found")
-        return
-    end
-
-    local originalCFrame = hrp.CFrame
-
-    -- Teleport to the weapon pickup
-    hrp.CFrame = itemPickup.CFrame + Vector3.new(0, 3, 0)  -- Raise a bit to avoid stuck
-    
-    wait(0.3) -- Give the game a moment
+    local original = hrp.CFrame
+    hrp.CFrame = item.CFrame + Vector3.new(0, 3, 0)
+    wait(0.3)
 
     if ItemHandler then
-        for i = 1, 5 do  -- More attempts to pick up weapon
+        for i = 1, 5 do
             pcall(function()
-                ItemHandler:InvokeServer(itemPickup)
+                ItemHandler:InvokeServer(item)
             end)
-            wait(0.2)
+            wait(0.1)
         end
-    else
-        warn("ItemHandler not available to invoke")
     end
 
-    -- Teleport back to original spot
-    hrp.CFrame = originalCFrame
+    hrp.CFrame = original
 end
 
 WeaponsTab:CreateButton({
     Name = "Give All Weapons",
     Callback = function()
-        local backpack = Player:WaitForChild("Backpack")
-        local toolsFolder = ReplicatedStorage:FindFirstChild("Tools")
-
-        if toolsFolder then
-            for _, tool in ipairs(toolsFolder:GetChildren()) do
+        local backpack = LocalPlayer:WaitForChild("Backpack")
+        local tools = ReplicatedStorage:FindFirstChild("Tools")
+        if tools then
+            for _, tool in pairs(tools:GetChildren()) do
                 if tool:IsA("Tool") then
-                    local clonedTool = tool:Clone()
-                    clonedTool.Parent = backpack
+                    tool:Clone().Parent = backpack
                 end
             end
-        else
-            warn("Tools folder not found in ReplicatedStorage.")
         end
-    end,
+    end
 })
 
-
-local weapons = {"AK-47", "Remington 870", "AS-50", "UZI"}
-
-for _, weaponName in ipairs(weapons) do
+for _, gun in ipairs({"AK-47", "Remington 870", "AS-50", "UZI"}) do
     WeaponsTab:CreateButton({
-        Name = "Give " .. weaponName,
+        Name = "Give " .. gun,
         Callback = function()
-            giveWeapon(weaponName)
-        end,
+            giveWeapon(gun)
+        end
     })
 end
 
------------------------
--- Teams Tab
------------------------
+-- === Teams Tab ===
 local TeamsTab = Window:CreateTab("Teams", 0)
-TeamsTab:CreateSection("Switch Teams")
+local TeamEvent = Workspace:WaitForChild("Remote"):WaitForChild("TeamEvent")
 
-local TeamEvent = workspace:WaitForChild("Remote"):WaitForChild("TeamEvent")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-
-local function changeTeam(teamColorName)
-    if not TeamEvent then
-        warn("TeamEvent remote not found!")
-        return
+local function changeTeam(color)
+    if TeamEvent then
+        TeamEvent:FireServer(color)
     end
-
-    pcall(function()
-        TeamEvent:FireServer(teamColorName)
-    end)
 end
 
-TeamsTab:CreateButton({
-    Name = "Join Guards",
-    Callback = function()
-        changeTeam("Bright blue")
-    end,
-})
+TeamsTab:CreateButton({ Name = "Join Guards", Callback = function() changeTeam("Bright blue") end })
+TeamsTab:CreateButton({ Name = "Join Inmates", Callback = function() changeTeam("Bright orange") end })
+TeamsTab:CreateButton({ Name = "Go Neutral", Callback = function() changeTeam("Medium stone grey") end })
 
 TeamsTab:CreateButton({
     Name = "Join Criminals",
     Callback = function()
-        local player = game.Players.LocalPlayer
-        local char = player.Character or player.CharacterAdded:Wait()
+        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if hrp then
-            local originalCFrame = hrp.CFrame
-            local criminalSpawn = CFrame.new(-919.12, 95.33, 2133.27)
-            
-            hrp.CFrame = criminalSpawn
-            wait(0.1)
-            hrp.CFrame = originalCFrame
+            local old = hrp.CFrame
+            hrp.CFrame = CFrame.new(-919.12, 95.33, 2133.27)
+            wait(0.2)
+            hrp.CFrame = old
         end
-    end,
-})
-
-
-
-
-TeamsTab:CreateButton({
-    Name = "Join Inmates",
-    Callback = function()
-        changeTeam("Bright orange")
-    end,
-})
-
-TeamsTab:CreateButton({
-    Name = "Go Neutral",
-    Callback = function()
-       changeTeam("Medium stone grey")
     end,
 })
 
 TeamsTab:CreateButton({
     Name = "Join Purple Team (Client Side)",
     Callback = function()
-        local TeamsService = game:GetService("Teams")
-        local player = LocalPlayer
         local purple = TeamsService:FindFirstChild("Purple")
         if not purple then
-            purple = Instance.new("Team")
+            purple = Instance.new("Team", TeamsService)
             purple.Name = "Purple"
             purple.TeamColor = BrickColor.new("Royal purple")
-            purple.AutoAssignable = false
-            purple.Parent = TeamsService
         end
-        player.Team = purple
-        player.Neutral = false
+        LocalPlayer.Team = purple
+        LocalPlayer.Neutral = false
     end,
 })
+
+-- === Misc Tab ===
+local MiscTab = Window:CreateTab("Misc")
+MiscTab:CreateSection("Utilities")
+
+local noclipEnabled = false
+local instantRespawnEnabled = false
+
+MiscTab:CreateToggle({
+    Name = "Noclip",
+    CurrentValue = false,
+    Callback = function(state) noclipEnabled = state end
+})
+
+local instantRespawnEnabled = false
+local instantRespawnConnection
+
+
+MiscTab:CreateToggle({
+    Name = "Instant Respawn",
+    CurrentValue = false,
+    Callback = function(state)
+        instantRespawnEnabled = state
+        if state then
+            if not instantRespawnConnection then
+                instantRespawnConnection = LocalPlayer.CharacterAdded:Connect(function(char)
+                    local humanoid = char:WaitForChild("Humanoid", 5)
+                    if humanoid then
+                        humanoid.Died:Connect(function()
+                            wait(0.1)
+                            LocalPlayer:LoadCharacter()
+                        end)
+                    end
+                end)
+            end
+        else
+            if instantRespawnConnection then
+                instantRespawnConnection:Disconnect()
+                instantRespawnConnection = nil
+            end
+        end
+    end
+})
+
+
+
+RunService.Stepped:Connect(function()
+    if noclipEnabled then
+        local char = LocalPlayer.Character
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end
+end)
